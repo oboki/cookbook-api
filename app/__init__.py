@@ -1,3 +1,4 @@
+from .model import BaseDetailModel, BaseSearchResultModel, ExactSearchResultForTableModel
 import logging
 import json
 from urllib.parse import unquote
@@ -18,12 +19,9 @@ from airflow.www_rbac.decorators import action_logging, gzipped, has_dag_access
 from airflow.plugins_manager import AirflowPlugin
 
 from pathlib import Path
-import sys
-sys.path.insert(0, str(Path(__file__).parent.absolute()))
-
-from model import BaseDetailModel, BaseSearchResultModel
 
 logger = logging.getLogger("cookbook-api")
+
 
 class CookbookApi(AppBuilderBaseView):
 
@@ -36,19 +34,39 @@ class CookbookApi(AppBuilderBaseView):
 
     #@has_access
     #@permission_name("list")
+
     @provide_session
     @expose('/v1/<index>/search')
     def search(self, index, session=None):
+        size = int(unquote(request.args.get('size', '4')))
+        page = int(unquote(request.args.get('page', '0')))
+
         query = unquote(request.args.get('s', ''))
         if not query:
             return wwwutils.json_response([])
 
-        search = BaseSearchResultModel(query, index)
-        return wwwutils.json_response(search.get_result())
+        exact = unquote(request.args.get('exact', ''))
+        if exact:
+            search = ExactSearchResultForTableModel(
+                query.split(".")[0],  # db_name
+                query.split(".")[1],  # table_name
+                index,
+                size=size, offset=page*size
 
+            )
+            return wwwutils.json_response(search.get_result())
+
+        search = BaseSearchResultModel(
+            query,
+            index,
+            size=size,
+            offset=page*size
+        )
+        return wwwutils.json_response(search.get_result())
 
     #@has_access
     #@permission_name("list")
+
     @provide_session
     @expose('/v1/<index>/<id>')
     def detail(self, index, id, session=None):

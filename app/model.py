@@ -49,12 +49,9 @@ class BaseSearchResultModel:
         self,
         query,
         index,
-        size=5,
+        size=4,
         offset=0
     ):
-        self.query = query
-        self.index = index
-
         body = {
             "size": size,
             "from": offset,
@@ -65,7 +62,8 @@ class BaseSearchResultModel:
                         "tables": ['table_name', 'entity_name', 'description'],
                         "columns": ['column_name', 'attribute_name', 'description'],
                         "codes": ['code', 'description'],
-                        "comments": ['comment']
+                        "comments": ['comment'],
+                        "autocomplete_keywords": ['keyword']
                     }[index]
                 }
             },
@@ -83,8 +81,37 @@ class BaseSearchResultModel:
         return self.result
 
 
-class ExactSearchResultModel(BaseSearchResultModel):
-    pass
+class ExactSearchResultForTableModel(BaseSearchResultModel):
+
+    def __init__(
+        self,
+        db_name,
+        table_name,
+        index,
+        size=1000,
+        offset=0
+    ):
+        body = {
+            "size": size,
+            "from": offset,
+            "query": {
+                "bool" : { "must" : [
+                    { "term" : { "table_name.keyword" : { "value" : table_name }}},
+                    { "term" : { "db_name" : { "value" : db_name }}
+                }]}
+            },
+            "sort": [{{
+                "columns": "position",
+                "codes": "code",
+                "comments": "created_ts",
+                "tables": "created_ts",
+            }[index]: {"order": "asc"}}]
+        }
+
+        self.result = es_client.search(
+            index=index,
+            body=body
+        )['hits']['hits']
 
 
 class BaseUserModel:

@@ -1,4 +1,4 @@
-from .model import BaseDetailModel, BaseSearchResultModel, ExactSearchResultForTableModel
+from .model import BaseDetailModel, BaseSearchResultModel, SearchByColumnNameResultModel, SearchByParentIdResultModel, WildcardSearchResultModel
 import logging
 import json
 from urllib.parse import unquote
@@ -45,14 +45,24 @@ class CookbookApi(AppBuilderBaseView):
         if not query:
             return wwwutils.json_response([])
 
-        exact = unquote(request.args.get('exact', ''))
-        if exact:
-            search = ExactSearchResultForTableModel(
-                query.split(".")[0],  # db_name
-                query.split(".")[1],  # table_name
-                index,
-                size=size, offset=page*size
+        wildcard = unquote(request.args.get('wildcard', ''))
+        if wildcard:
+            search = WildcardSearchResultModel(query, index)
+            return wwwutils.json_response(search.get_result())
 
+        by_parent_id = unquote(request.args.get('by-parent-id', ''))
+        if by_parent_id:
+            search = SearchByParentIdResultModel(
+                query, # parent_id
+                index
+            )
+            return wwwutils.json_response(search.get_result())
+
+        by_column_name = unquote(request.args.get('by-column-name', ''))
+        if by_column_name:
+            search = SearchByColumnNameResultModel(
+                query, # column_name
+                index
             )
             return wwwutils.json_response(search.get_result())
 

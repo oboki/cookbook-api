@@ -1,3 +1,4 @@
+from flask_appbuilder.security.decorators import has_access_api
 from .model import BaseDetailModel, BaseSearchResultModel, SearchByColumnNameResultModel, SearchByParentIdResultModel, WildcardSearchResultModel
 import logging
 import json
@@ -14,7 +15,7 @@ import airflow
 from airflow.exceptions import AirflowException
 from airflow.utils.db import provide_session
 from airflow.www_rbac import utils as wwwutils
-from airflow.www_rbac.app import app, appbuilder
+from airflow.www_rbac.app import app, appbuilder, csrf
 from airflow.www_rbac.decorators import action_logging, gzipped, has_dag_access
 from airflow.plugins_manager import AirflowPlugin
 
@@ -32,9 +33,8 @@ class CookbookApi(AppBuilderBaseView):
     def index(self, session=None):
         return ''
 
-    #@has_access
-    #@permission_name("list")
-
+    # @has_access_api
+    # @permission_name("list")
     @provide_session
     @expose('/v1/<index>/search')
     def search(self, index, session=None):
@@ -82,6 +82,27 @@ class CookbookApi(AppBuilderBaseView):
     def detail(self, index, id, session=None):
         detail = BaseDetailModel(index, id)
         return wwwutils.json_response(detail.show())
+
+    #@has_access
+    #@permission_name("edit")
+
+    @provide_session
+    @csrf.exempt
+    @expose('/v1/<index>/add', methods=['POST'])
+    def create(self, index, session=None):
+        import json
+        req = request.get_json()
+        code = BaseDetailModel(
+            index, doc={
+                'codes': {
+                    'column_name': req['data']['column_name'],
+                    'code_name': req['data']['code_name'],
+                    'description': req['data']['description'],
+                }
+            }[index]
+        )
+        code.create()
+        return jsonify(0)
 
 
 v_appbuilder_view = CookbookApi()

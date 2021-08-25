@@ -1,3 +1,16 @@
+from hashlib import blake2b
+from datetime import datetime
+
+
+def create_hash_id(s):
+    h = blake2b(digest_size=10)
+    h.update(s.encode('utf-8'))
+    return h.hexdigest()
+
+
+def current_ts_isof():
+    return datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+
 import logging
 logger = logging.getLogger("cookbook-api")
 
@@ -12,20 +25,43 @@ class BaseDetailModel:
     def __init__(
         self,
         index,
-        id=None
+        id=None,
+        **kwargs
     ):
-        self.id = id
+        logger.info(kwargs)
+
+        self.current_ts = current_ts_isof()
         self.index = index
-        self.source = es_client.search(
-            index=index,
-            body={
-                "query": {
-                    "ids": {
-                        "values": [self.id]
+        self.kwrags = kwargs
+
+        if id:
+            self.id = id
+            self.source = es_client.search(
+                index=index,
+                body={
+                    "query": {
+                        "ids": {
+                            "values": [id]
+                        }
                     }
                 }
-            }
-        )['hits']['hits'][0]['_source']
+            )['hits']['hits'][0]['_source']
+        else:
+            if index == 'codes':
+                self.id = create_hash_id(''.join([
+                    kwargs['doc']['column_name'],
+                    kwargs['doc']['code_name']
+                ]))
+                self.doc = {
+                    'column_name': kwargs['doc']['code_name'],
+                    'code': kwargs['doc']['code_name'],
+                    'description': kwargs['doc']['description'],
+                    'created_ts': self.current_ts,
+                    'modified_ts': self.current_ts
+                }
+
+                logger.info(self.doc)
+
 
     def show(self, **kwargs):
         return self.source
@@ -42,8 +78,14 @@ class BaseDetailModel:
             index=self.index
         )
 
-    def create(self, **kwargs):
-        pass
+    def create(self):
+        es_client.index(
+            index=self.index,
+            id=self.id,
+            doc_type='_doc',
+            body=self.doc,
+        )
+        self.refresh()
 
 
 class BaseSearchResultModel:

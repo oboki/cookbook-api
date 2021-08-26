@@ -92,17 +92,48 @@ class CookbookApi(AppBuilderBaseView):
     def create(self, index, session=None):
         import json
         req = request.get_json()
-        code = BaseDetailModel(
-            index, doc={
-                'codes': {
-                    'column_name': req['data']['column_name'],
-                    'code_name': req['data']['code_name'],
-                    'description': req['data']['description'],
-                }
-            }[index]
-        )
+        parent = BaseDetailModel('tables', req['data']['parent_id'])
+
+        if index == 'codes':
+            doc = {
+                'column_name': req['data']['column_name'],
+                'code': req['data']['code'],
+                'description': req['data']['description'],
+                'parent_id': req['data']['parent_id'],
+            }
+        elif index == 'comments':
+            doc = {
+                'author': req['data']['author'],
+                'comment': req['data']['comment'],
+                'parent_id': req['data']['parent_id'],
+                'db_name': parent.db_name,
+                'table_name': parent.table_name
+            }
+
+        code = BaseDetailModel(index, doc=doc)
         code.create()
-        return jsonify(0)
+
+        return jsonify({
+            'created_doc_id': code.id
+        })
+
+
+    #@has_access
+    #@permission_name("edit")
+
+    @provide_session
+    @csrf.exempt
+    @expose('/v1/<index>/edit/<id>', methods=['POST'])
+    def edit(self, index, id, session=None):
+        import json
+        doc = request.get_json()['data']
+
+        document = BaseDetailModel(index, id=id)
+        document.update(kwargs=doc)
+
+        return jsonify({
+           'status': 'success'
+        })
 
 
 v_appbuilder_view = CookbookApi()

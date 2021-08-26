@@ -28,8 +28,6 @@ class BaseDetailModel:
         id=None,
         **kwargs
     ):
-        logger.info(kwargs)
-
         self.current_ts = current_ts_isof()
         self.index = index
         self.kwrags = kwargs
@@ -46,31 +44,36 @@ class BaseDetailModel:
                     }
                 }
             )['hits']['hits'][0]['_source']
+
+            self.db_name = self.source['db_name']
+            self.table_name = self.source['table_name']
+
         else:
+            self.doc = kwargs['doc']
+            self.doc.update({
+                'created_ts': self.current_ts,
+                'modified_ts': self.current_ts
+            })
             if index == 'codes':
                 self.id = create_hash_id(''.join([
                     kwargs['doc']['column_name'],
-                    kwargs['doc']['code_name']
+                    kwargs['doc']['code']
                 ]))
-                self.doc = {
-                    'column_name': kwargs['doc']['code_name'],
-                    'code': kwargs['doc']['code_name'],
-                    'description': kwargs['doc']['description'],
-                    'created_ts': self.current_ts,
-                    'modified_ts': self.current_ts
-                }
-
-                logger.info(self.doc)
+            elif index == 'comments':
+                self.id = create_hash_id(''.join([
+                    kwargs['doc']['author'],
+                    self.current_ts
+                ]))
 
 
     def show(self, **kwargs):
         return self.source
 
-    def update(self, **doc):
+    def update(self, **kwargs):
         es_client.update(
             index=self.index,
             id=self.id,
-            body=doc
+            body={'doc': kwargs['kwargs']}
         )
 
     def refresh(self):
@@ -145,8 +148,6 @@ class WildcardSearchResultModel(BaseSearchResultModel):
                 }
             }
         }
-
-        logger.info(body)
 
         self.result = es_client.search(
             index=index,

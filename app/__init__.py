@@ -1,5 +1,5 @@
 from flask_appbuilder.security.decorators import has_access_api
-from .model import BaseDetailModel, BaseSearchResultModel, SearchByColumnNameResultModel, SearchByParentIdResultModel, WildcardSearchResultModel
+from .model import BaseDocumentModel, BaseSearchResultModel, SearchByColumnNameResultModel, SearchByParentIdResultModel, WildcardSearchResultModel
 import logging
 import json
 from urllib.parse import unquote
@@ -80,8 +80,23 @@ class CookbookApi(AppBuilderBaseView):
     @provide_session
     @expose('/v1/<index>/<id>')
     def detail(self, index, id, session=None):
-        detail = BaseDetailModel(index, id)
+        detail = BaseDocumentModel(index, id)
         return wwwutils.json_response(detail.show())
+
+    #@has_access
+    #@permission_name("list")
+
+    @provide_session
+    @expose('/v1/user')
+    def get_current_user(self, session=None):
+        if g and hasattr(g, 'user') and g.user:
+            try:
+                username = g.user.username
+            except AttributeError:
+                username = 'Anonymous'
+
+        return wwwutils.json_response({'username': username})
+
 
     #@has_access
     #@permission_name("edit")
@@ -92,7 +107,7 @@ class CookbookApi(AppBuilderBaseView):
     def create(self, index, session=None):
         import json
         req = request.get_json()
-        parent = BaseDetailModel('tables', req['data']['parent_id'])
+        parent = BaseDocumentModel('tables', req['data']['parent_id'])
 
         if index == 'codes':
             doc = {
@@ -110,7 +125,7 @@ class CookbookApi(AppBuilderBaseView):
                 'table_name': parent.table_name
             }
 
-        code = BaseDetailModel(index, doc=doc)
+        code = BaseDocumentModel(index, doc=doc)
         code.create()
 
         return jsonify({
@@ -125,10 +140,9 @@ class CookbookApi(AppBuilderBaseView):
     @csrf.exempt
     @expose('/v1/<index>/edit/<id>', methods=['POST'])
     def edit(self, index, id, session=None):
-        import json
         doc = request.get_json()['data']
 
-        document = BaseDetailModel(index, id=id)
+        document = BaseDocumentModel(index, id=id)
         document.update(kwargs=doc)
 
         return jsonify({

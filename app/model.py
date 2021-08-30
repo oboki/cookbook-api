@@ -20,7 +20,7 @@ es_client = Elasticsearch(
     timeout=10
 )
 
-class BaseDetailModel:
+class BaseDocumentModel:
 
     def __init__(
         self,
@@ -45,8 +45,8 @@ class BaseDetailModel:
                 }
             )['hits']['hits'][0]['_source']
 
-            self.db_name = self.source['db_name']
-            self.table_name = self.source['table_name']
+            self.db_name = self.source['db_name'] if hasattr(self.source,'db_name') else ''
+            self.table_name = self.source['table_name'] if hasattr(self.source,'table_name') else ''
 
         else:
             self.doc = kwargs['doc']

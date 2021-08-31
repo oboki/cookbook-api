@@ -76,6 +76,12 @@ class BaseDocumentModel:
             body={'doc': kwargs['kwargs']}
         )
 
+    def delete(self, **kwargs):
+        es_client.delete(
+            index=self.index,
+            id=self.id
+        )
+
     def refresh(self):
         es_client.indices.refresh(
             index=self.index
@@ -205,6 +211,30 @@ class SearchByColumnNameResultModel(BaseSearchResultModel):
                 "comments": "created_ts",
                 "tables": "created_ts",
             }[index]: {"order": "asc"}}]
+        }
+
+        self.result = es_client.search(
+            index=index,
+            body=body
+        )['hits']
+
+
+class SearchByAuthorResultModel(BaseSearchResultModel):
+
+    def __init__(
+        self,
+        query,
+        index,
+        size=10,
+        offset=0
+    ):
+        body = {
+            "size": size,
+            "from": offset,
+            "query": {
+                "term": { "author": { "value": query } }
+            },
+            "sort": [{"created_ts" : {"order": "desc"}}]
         }
 
         self.result = es_client.search(

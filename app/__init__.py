@@ -1,5 +1,5 @@
 from flask_appbuilder.security.decorators import has_access_api
-from .model import BaseDocumentModel, BaseSearchResultModel, SearchByColumnNameResultModel, SearchByParentIdResultModel, WildcardSearchResultModel
+from .model import BaseDocumentModel, BaseSearchResultModel, SearchByAuthorResultModel, SearchByColumnNameResultModel, SearchByParentIdResultModel, WildcardSearchResultModel
 import logging
 import json
 from urllib.parse import unquote
@@ -62,6 +62,14 @@ class CookbookApi(AppBuilderBaseView):
         if by_column_name:
             search = SearchByColumnNameResultModel(
                 query, # column_name
+                index
+            )
+            return wwwutils.json_response(search.get_result())
+
+        by_author = unquote(request.args.get('by-author', ''))
+        if by_author:
+            search = SearchByAuthorResultModel(
+                query,
                 index
             )
             return wwwutils.json_response(search.get_result())
@@ -144,6 +152,21 @@ class CookbookApi(AppBuilderBaseView):
 
         document = BaseDocumentModel(index, id=id)
         document.update(kwargs=doc)
+
+        return jsonify({
+           'status': 'success'
+        })
+
+
+    #@has_access
+    #@permission_name("edit")
+
+    @provide_session
+    @csrf.exempt
+    @expose('/v1/<index>/delete/<id>', methods=['POST'])
+    def delete(self, index, id, session=None):
+        document = BaseDocumentModel(index, id=id)
+        document.delete()
 
         return jsonify({
            'status': 'success'

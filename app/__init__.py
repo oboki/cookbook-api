@@ -1,5 +1,5 @@
 from flask_appbuilder.security.decorators import has_access_api
-from .model import BaseDocumentModel, BaseSearchResultModel, SearchByAuthorResultModel, SearchByColumnNameResultModel, SearchByParentIdResultModel, WildcardSearchResultModel
+from .model import BaseDocumentModel, BaseSearchResultModel, MatchAllSearchResultModel, SearchByAuthorResultModel, SearchByColumnNameResultModel, SearchByParentIdResultModel, WildcardSearchResultModel
 import logging
 import json
 from urllib.parse import unquote
@@ -32,6 +32,15 @@ class CookbookApi(AppBuilderBaseView):
     @expose('/')
     def index(self, session=None):
         return ''
+
+    # @has_access_api
+    # @permission_name("list")
+    @provide_session
+    @expose('/v1/<index>')
+    def match_all(self, index, session=None):
+        search = MatchAllSearchResultModel(index)
+        return wwwutils.json_response(search.get_result())
+
 
     # @has_access_api
     # @permission_name("list")
@@ -129,9 +138,11 @@ class CookbookApi(AppBuilderBaseView):
                 'author': req['data']['author'],
                 'comment': req['data']['comment'],
                 'parent_id': req['data']['parent_id'],
-                'db_name': parent.db_name,
-                'table_name': parent.table_name
+                'db_name': req['data']['db_name'],
+                'table_name': req['data']['table_name'],
+                'entity_name': req['data']['entity_name']
             }
+            # TODO 클라이언트에서 parent 정보 다 받아도 될까?
 
         code = BaseDocumentModel(index, doc=doc)
         code.create()

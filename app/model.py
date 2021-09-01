@@ -45,9 +45,6 @@ class BaseDocumentModel:
                 }
             )['hits']['hits'][0]['_source']
 
-            self.db_name = self.source['db_name'] if hasattr(self.source,'db_name') else ''
-            self.table_name = self.source['table_name'] if hasattr(self.source,'table_name') else ''
-
         else:
             self.doc = kwargs['doc']
             self.doc.update({
@@ -106,7 +103,8 @@ class BaseSearchResultModel:
         size=4,
         offset=0
     ):
-        body = {
+        self.index = index
+        self.body = {
             "size": size,
             "from": offset,
             "query": {
@@ -121,19 +119,34 @@ class BaseSearchResultModel:
                     }[index]
                 }
             }
-            # ,
-            # "sort": [
-            #     {"_score": {"order": "desc"}}
-            # ]
         }
 
-        self.result = es_client.search(
-            index=index,
-            body=body
+    def get_result(self, **kwargs):
+        return es_client.search(
+            index=self.index,
+            body=self.body
         )['hits']
 
-    def get_result(self, **kwargs):
-        return self.result
+
+class MatchAllSearchResultModel(BaseSearchResultModel):
+
+    def __init__(
+        self,
+        index,
+        size=10,
+        offset=0
+    ):
+        self.index= index
+        self.body = {
+            "size": size,
+            "from": offset,
+            "query": {
+                "match_all" : {}
+            },
+            "sort": [
+                {"created_ts": {"order": "desc"}}
+            ]
+        }
 
 
 class WildcardSearchResultModel(BaseSearchResultModel):
@@ -145,7 +158,8 @@ class WildcardSearchResultModel(BaseSearchResultModel):
         size=10,
         offset=0
     ):
-        body = {
+        self.index= index
+        self.body = {
             "size": size,
             "from": offset,
             "query": {
@@ -154,11 +168,6 @@ class WildcardSearchResultModel(BaseSearchResultModel):
                 }
             }
         }
-
-        self.result = es_client.search(
-            index=index,
-            body=body
-        )['hits']
 
 
 class SearchByParentIdResultModel(BaseSearchResultModel):
@@ -170,7 +179,8 @@ class SearchByParentIdResultModel(BaseSearchResultModel):
         size=1000,
         offset=0
     ):
-        body = {
+        self.index= index
+        self.body = {
             "size": size,
             "from": offset,
             "query": {
@@ -184,11 +194,6 @@ class SearchByParentIdResultModel(BaseSearchResultModel):
             }[index]: {"order": "asc"}}]
         }
 
-        self.result = es_client.search(
-            index=index,
-            body=body
-        )['hits']
-
 
 class SearchByColumnNameResultModel(BaseSearchResultModel):
 
@@ -199,7 +204,8 @@ class SearchByColumnNameResultModel(BaseSearchResultModel):
         size=1000,
         offset=0
     ):
-        body = {
+        self.index= index
+        self.body = {
             "size": size,
             "from": offset,
             "query": {
@@ -213,11 +219,6 @@ class SearchByColumnNameResultModel(BaseSearchResultModel):
             }[index]: {"order": "asc"}}]
         }
 
-        self.result = es_client.search(
-            index=index,
-            body=body
-        )['hits']
-
 
 class SearchByAuthorResultModel(BaseSearchResultModel):
 
@@ -228,7 +229,8 @@ class SearchByAuthorResultModel(BaseSearchResultModel):
         size=10,
         offset=0
     ):
-        body = {
+        self.index= index
+        self.body = {
             "size": size,
             "from": offset,
             "query": {
@@ -236,11 +238,6 @@ class SearchByAuthorResultModel(BaseSearchResultModel):
             },
             "sort": [{"created_ts" : {"order": "desc"}}]
         }
-
-        self.result = es_client.search(
-            index=index,
-            body=body
-        )['hits']
 
 
 class ExactSearchResultForTableModel(BaseSearchResultModel):

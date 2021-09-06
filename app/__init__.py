@@ -1,26 +1,26 @@
-from flask_appbuilder.security.decorators import has_access_api
-from .model import BaseDocumentModel, BaseSearchResultModel, MatchAllSearchResultModel, SearchByAuthorResultModel, SearchByColumnNameResultModel, SearchByParentIdResultModel, WildcardSearchResultModel
-import logging
-import json
-from urllib.parse import unquote
+from .model import (
+    BaseDocumentModel, BaseSearchResultModel, MatchAllSearchResultModel,
+    SearchByAuthorResultModel, SearchByColumnNameResultModel,
+    SearchByParentIdResultModel,WildcardSearchResultModel
+)
 
 from flask import (
-    Markup, Response, escape, flash, jsonify, make_response, redirect, render_template, request,
-    session as flask_session, url_for, g,
+    jsonify, request,
+    session as flask_session, g,
 )
-from flask_appbuilder import BaseView, ModelView, expose, has_access, permission_name
+from flask_appbuilder import expose, has_access, permission_name
 from flask_appbuilder import BaseView as AppBuilderBaseView
+from flask_appbuilder.security.decorators import has_access_api
 
-import airflow
-from airflow.exceptions import AirflowException
 from airflow.utils.db import provide_session
 from airflow.www_rbac import utils as wwwutils
-from airflow.www_rbac.app import app, appbuilder, csrf
-from airflow.www_rbac.decorators import action_logging, gzipped, has_dag_access
+from airflow.www_rbac.app import csrf
 from airflow.plugins_manager import AirflowPlugin
 
-from pathlib import Path
-
+from urllib.parse import unquote
+from copy import deepcopy
+import json
+import logging
 logger = logging.getLogger("cookbook-api")
 
 
@@ -45,14 +45,25 @@ class CookbookApi(AppBuilderBaseView):
     # @has_access_api
     # @permission_name("list")
     @provide_session
-    @expose('/v1/<index>/search')
+    @csrf.exempt
+    @expose('/v1/<index>/search', methods=['GET', 'POST'])
     def search(self, index, session=None):
         size = int(unquote(request.args.get('size', '4')))
         page = int(unquote(request.args.get('page', '0')))
 
+        payload = None
+        if request.method == 'POST':
+            payload = deepcopy(request.get_json()['data'])
+
         query = unquote(request.args.get('s', ''))
         if not query:
-            return wwwutils.json_response([])
+            search = MatchAllSearchResultModel(
+                index,
+                size=size,
+                offset=page*size,
+                advanced=payload
+            )
+            return wwwutils.json_response(search.get_result())
 
         wildcard = unquote(request.args.get('wildcard', ''))
         if wildcard:
@@ -79,7 +90,9 @@ class CookbookApi(AppBuilderBaseView):
         if by_author:
             search = SearchByAuthorResultModel(
                 query,
-                index
+                index,
+                size=size,
+                offset=page*size
             )
             return wwwutils.json_response(search.get_result())
 
@@ -87,7 +100,8 @@ class CookbookApi(AppBuilderBaseView):
             query,
             index,
             size=size,
-            offset=page*size
+            offset=page*size,
+            advanced=payload
         )
         return wwwutils.json_response(search.get_result())
 
@@ -104,7 +118,7 @@ class CookbookApi(AppBuilderBaseView):
     #@permission_name("list")
 
     @provide_session
-    @expose('/v1/user')
+    @expose('/v1/whoami')
     def get_current_user(self, session=None):
         if g and hasattr(g, 'user') and g.user:
             try:
@@ -122,33 +136,13 @@ class CookbookApi(AppBuilderBaseView):
     @csrf.exempt
     @expose('/v1/<index>/add', methods=['POST'])
     def create(self, index, session=None):
-        import json
         req = request.get_json()
-        parent = BaseDocumentModel('tables', req['data']['parent_id'])
 
-        if index == 'codes':
-            doc = {
-                'column_name': req['data']['column_name'],
-                'code': req['data']['code'],
-                'description': req['data']['description'],
-                'parent_id': req['data']['parent_id'],
-            }
-        elif index == 'comments':
-            doc = {
-                'author': req['data']['author'],
-                'comment': req['data']['comment'],
-                'parent_id': req['data']['parent_id'],
-                'db_name': req['data']['db_name'],
-                'table_name': req['data']['table_name'],
-                'entity_name': req['data']['entity_name']
-            }
-            # TODO 클라이언트에서 parent 정보 다 받아도 될까?
-
-        code = BaseDocumentModel(index, doc=doc)
-        code.create()
+        doc = BaseDocumentModel(index, doc=req['data'])
+        doc.create()
 
         return jsonify({
-            'created_doc_id': code.id
+            'created_doc_id': doc.id
         })
 
 

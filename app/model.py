@@ -1,6 +1,7 @@
 from hashlib import blake2b
 from datetime import datetime
-
+from copy import deepcopy
+import json
 
 def create_hash_id(s):
     h = blake2b(digest_size=10)
@@ -101,32 +102,85 @@ class BaseSearchResultModel:
         query,
         index,
         size=4,
-        offset=0
+        offset=0,
+        advanced=None
     ):
         self.index = index
         self.body = {
             "size": size,
             "from": offset,
             "query": {
-                "multi_match": {
-                    "query": query,
-                    "fields": {
-                        "tables": ['table_name', 'entity_name', 'description'],
-                        "columns": ['column_name', 'attribute_name', 'description'],
-                        "codes": ['code', 'description'],
-                        "comments": ['comment'],
-                        "autocomplete_keywords": ['keyword']
-                    }[index]
+                "bool": {
+                    "must": [
+                        {
+                            "multi_match": {
+                                "query": query,
+                                "fields": {
+                                    "tables": ['table_name', 'entity_name', 'description'],
+                                    "columns": ['column_name', 'attribute_name', 'description'],
+                                    "codes": ['code', 'description'],
+                                    "comments": ['comment'],
+                                    "autocomplete_keywords": ['keyword']
+                                }[index]
+                            }
+                        }
+                    ]
                 }
             }
         }
 
-    def get_result(self, **kwargs):
+        self.advanced = advanced
+        if self.advanced:
+            self.update_body_with_advanced_query()
+
+        logger.info(json.dumps(self.body, indent=2))
+
+    def update_body_with_advanced_query(self):
+        for item in self.advanced:
+            if item['type'] == 'filter':
+                tmp = [
+                    {
+                        "term": {
+                            item['field']: item['value']
+                        }
+                    }
+                ]
+                self.body['query']['bool'].update({'filter': tmp})
+
+            if item['type'] == 'wildcard':
+                tmp = {
+                    "wildcard": {
+                        "".join([item['field'], '.keyword']): {
+                            "value": item['value']
+                        }
+                    }
+                }
+                self.body['query']['bool']['must'].append(tmp)
+
+            if item['type'] == 'exclude':
+                tmp = deepcopy(self.body['query']['bool']['must'][0])
+                tmp = {
+                    "multi_match": {
+                        "query": item['value'],
+                        "fields": {
+                            "tables": ['table_name', 'entity_name', 'description'],
+                            "columns": ['column_name', 'attribute_name', 'description'],
+                            "codes": ['code', 'description'],
+                            "comments": ['comment'],
+                            "autocomplete_keywords": ['keyword']
+                        }[self.index]
+                    }
+                }
+                logger.info(tmp)
+                self.body['query']['bool'].update({'must_not': tmp})
+
+
+    def get_result(self):
         return es_client.search(
             index=self.index,
             body=self.body
         )['hits']
-
+    
 
 class MatchAllSearchResultModel(BaseSearchResultModel):
 
@@ -134,19 +188,32 @@ class MatchAllSearchResultModel(BaseSearchResultModel):
         self,
         index,
         size=10,
-        offset=0
+        offset=0,
+        advanced=None
     ):
         self.index= index
         self.body = {
             "size": size,
             "from": offset,
             "query": {
-                "match_all" : {}
+                "bool": {
+                    "must": [
+                        {
+                            "match_all" : {}
+                        }
+                    ]
+                }
             },
             "sort": [
                 {"created_ts": {"order": "desc"}}
             ]
         }
+
+        self.advanced = advanced
+        if self.advanced:
+            self.update_body_with_advanced_query()
+
+        logger.info(json.dumps(self.body, indent=2))
 
 
 class WildcardSearchResultModel(BaseSearchResultModel):

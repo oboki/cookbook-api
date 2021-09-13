@@ -1,7 +1,10 @@
+import logging
+from elasticsearch import Elasticsearch
 from hashlib import blake2b
 from datetime import datetime
 from copy import deepcopy
 import json
+
 
 def create_hash_id(s):
     h = blake2b(digest_size=10)
@@ -12,14 +15,14 @@ def create_hash_id(s):
 def current_ts_isof():
     return datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
 
-import logging
+
 logger = logging.getLogger("cookbook-api")
 
-from elasticsearch import Elasticsearch
 es_client = Elasticsearch(
     'localhost:9200',
     timeout=10
 )
+
 
 class BaseDocumentModel:
 
@@ -62,7 +65,6 @@ class BaseDocumentModel:
                     kwargs['doc']['author'],
                     self.current_ts
                 ]))
-
 
     def show(self, **kwargs):
         return self.source
@@ -174,13 +176,12 @@ class BaseSearchResultModel:
                 logger.info(tmp)
                 self.body['query']['bool'].update({'must_not': tmp})
 
-
     def get_result(self):
         return es_client.search(
             index=self.index,
             body=self.body
         )['hits']
-    
+
 
 class MatchAllSearchResultModel(BaseSearchResultModel):
 
@@ -191,19 +192,13 @@ class MatchAllSearchResultModel(BaseSearchResultModel):
         offset=0,
         advanced=None
     ):
-        self.index= index
+        self.index = index
         self.body = {
             "size": size,
             "from": offset,
-            "query": {
-                "bool": {
-                    "must": [
-                        {
-                            "match_all" : {}
-                        }
-                    ]
-                }
-            },
+            "query": {"bool": {"must": [{
+                "match_all": {}
+            }]}},
             "sort": [
                 {"created_ts": {"order": "desc"}}
             ]
@@ -225,15 +220,13 @@ class WildcardSearchResultModel(BaseSearchResultModel):
         size=10,
         offset=0
     ):
-        self.index= index
+        self.index = index
         self.body = {
             "size": size,
             "from": offset,
-            "query": {
-                "wildcard" :
-                    { "keyword.keyword" : { "value" : "".join(['*',query,'*']) }
-                }
-            }
+            "query": {"wildcard": {
+                "keyword.keyword": {"value": "".join(['*', query, '*'])}
+            }}
         }
 
 
@@ -246,12 +239,12 @@ class SearchByParentIdResultModel(BaseSearchResultModel):
         size=1000,
         offset=0
     ):
-        self.index= index
+        self.index = index
         self.body = {
             "size": size,
             "from": offset,
             "query": {
-                "term": { "parent_id": { "value": query } }
+                "term": {"parent_id": {"value": query}}
             },
             "sort": [{{
                 "columns": "position",
@@ -271,12 +264,12 @@ class SearchByColumnNameResultModel(BaseSearchResultModel):
         size=1000,
         offset=0
     ):
-        self.index= index
+        self.index = index
         self.body = {
             "size": size,
             "from": offset,
             "query": {
-                "term": { "column_name.keyword": { "value": query } }
+                "term": {"column_name.keyword": {"value": query}}
             },
             "sort": [{{
                 "columns": "position",
@@ -296,19 +289,20 @@ class SearchByAuthorResultModel(BaseSearchResultModel):
         size=10,
         offset=0
     ):
-        self.index= index
+        self.index = index
         self.body = {
             "size": size,
             "from": offset,
             "query": {
-                "term": { "author": { "value": query } }
+                "term": {"author": {"value": query}}
             },
-            "sort": [{"created_ts" : {"order": "desc"}}]
+            "sort": [{"created_ts": {"order": "desc"}}]
         }
 
 
 class ExactSearchResultForTableModel(BaseSearchResultModel):
     pass
+
 
 class BaseUserModel:
     pass

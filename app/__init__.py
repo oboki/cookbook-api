@@ -1,7 +1,7 @@
 from .model import (
     BaseDocumentModel, BaseSearchResultModel, MatchAllSearchResultModel,
     SearchByAuthorResultModel, SearchByColumnNameResultModel,
-    SearchByParentIdResultModel,WildcardSearchResultModel
+    SearchByParentIdResultModel, WildcardSearchResultModel
 )
 
 from flask import (
@@ -41,9 +41,9 @@ class CookbookApi(AppBuilderBaseView):
         search = MatchAllSearchResultModel(index)
         return wwwutils.json_response(search.get_result())
 
-
     # @has_access_api
     # @permission_name("list")
+
     @provide_session
     @csrf.exempt
     @expose('/v1/<index>/search', methods=['GET', 'POST'])
@@ -73,7 +73,7 @@ class CookbookApi(AppBuilderBaseView):
         by_parent_id = unquote(request.args.get('by-parent-id', ''))
         if by_parent_id:
             search = SearchByParentIdResultModel(
-                query, # parent_id
+                query,  # parent_id
                 index
             )
             return wwwutils.json_response(search.get_result())
@@ -81,7 +81,7 @@ class CookbookApi(AppBuilderBaseView):
         by_column_name = unquote(request.args.get('by-column-name', ''))
         if by_column_name:
             search = SearchByColumnNameResultModel(
-                query, # column_name
+                query,  # column_name
                 index
             )
             return wwwutils.json_response(search.get_result())
@@ -105,8 +105,8 @@ class CookbookApi(AppBuilderBaseView):
         )
         return wwwutils.json_response(search.get_result())
 
-    #@has_access
-    #@permission_name("list")
+    # @has_access
+    # @permission_name("list")
 
     @provide_session
     @expose('/v1/<index>/<id>')
@@ -114,8 +114,8 @@ class CookbookApi(AppBuilderBaseView):
         detail = BaseDocumentModel(index, id)
         return wwwutils.json_response(detail.show())
 
-    #@has_access
-    #@permission_name("list")
+    # @has_access
+    # @permission_name("list")
 
     @provide_session
     @expose('/v1/whoami')
@@ -128,9 +128,8 @@ class CookbookApi(AppBuilderBaseView):
 
         return wwwutils.json_response({'username': username})
 
-
-    #@has_access
-    #@permission_name("edit")
+    # @has_access
+    # @permission_name("edit")
 
     @provide_session
     @csrf.exempt
@@ -145,9 +144,8 @@ class CookbookApi(AppBuilderBaseView):
             'created_doc_id': doc.id
         })
 
-
-    #@has_access
-    #@permission_name("edit")
+    # @has_access
+    # @permission_name("edit")
 
     @provide_session
     @csrf.exempt
@@ -159,12 +157,11 @@ class CookbookApi(AppBuilderBaseView):
         document.update(kwargs=doc)
 
         return jsonify({
-           'status': 'success'
+            'status': 'success'
         })
 
-
-    #@has_access
-    #@permission_name("edit")
+    # @has_access
+    # @permission_name("edit")
 
     @provide_session
     @csrf.exempt
@@ -174,7 +171,7 @@ class CookbookApi(AppBuilderBaseView):
         document.delete()
 
         return jsonify({
-           'status': 'success'
+            'status': 'success'
         })
 
 
